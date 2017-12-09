@@ -23,8 +23,6 @@ vec2 pixel_to_hex(vec2 pixel);
 vec2 get_hex_uv(vec2 p, vec2 res);
 float round(float f);
 
-// TODO: Add more notes about the code and algorithms to better explain it
-
 void main(void) {
 	vec2 p = gl_FragCoord.xy;
 	vec2 t = touch.xy;
@@ -104,30 +102,30 @@ vec2 pixel_to_hex(vec2 pixel)
 vec2 get_hex_uv(vec2 p, vec2 res)
 {
 	/*
-	 *	Note: Depending on your purposes for testing if a pixel
-	 *				is on a specific hexagon coordinate you may want to use
-	 *				the pixel_to_hex directly (with the raw pixel coordinate)
-	 *				as this (get_hex_uv) function leaves gaps between hexagons
-	 *				Eg. According to this function the hexagons marked with y are on equal y coords
+	 *      Note: Depending on your purposes for testing if a pixel
+	 *            is on a specific hexagon coordinate you may want to use
+	 *            the pixel_to_hex directly (with the raw pixel coordinate)
+	 *            as this (get_hex_uv) function leaves gaps between hexagons
+	 *            Eg. According to this function the hexagons marked with y are on equal y coords
 	 *             _   _   _
 	 *           _/ \_/ \_/ \_
 	 *          /y\_/y\_/y\_/y\
 	 *          \_/ \_/ \_/ \_/
 	 *            \_/ \_/ \_/
 	 *
-	 *				Where you may have wanted something like this
+	 *            Where you may have wanted something like this
 	 *             _   _   _
 	 *           _/ \_/ \_/ \_
 	 *          /y\_/y\_/y\_/y\
 	 *          \_/y\_/y\_/y\_/
 	 *            \_/ \_/ \_/
 	 *
-	 *				If so then you will want to use pixel_to_hex on the pixel coord
-	 *				so you will need to do something like this:
-	 *				vec2 hex = pixel_to_hex(pixel);
-	 *				hex.y += round(hex.x / 2.0);
-	 *        
-	 *        Just remember that when you compare this the value will not be normalized
+	 *            If so then you will want to use pixel_to_hex on the pixel coord
+	 *            so you will need to do something like this:
+	 *            vec2 hex = pixel_to_hex(pixel);
+	 *            hex.y += round(hex.x / 2.0);
+	 *
+	 *            Just remember that when you compare this the value will not be normalized
 	 */
 
 	// Convert to pixel coordinates and normalize
