@@ -159,7 +159,7 @@ float hex(vec2 p) {
 
 float hexGridf(vec2 p, float size, float edge0, float edge1) {
     // NOTE: sqrt(3) is equal to the length between two parralel lines in a regular hexagon
-    return smoothstep(0.0, 0.17, hex(p / size / sqrt(3.0)));
+    return smoothstep(edge0, edge1, hex(p / size / sqrt(3.0)));
     
     // NOTE: edge0 and edge1 control how thick the edges of the hexagons will be.
     // If edge0 > edge1 than then the hexagon will be inverted.
