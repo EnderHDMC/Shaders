@@ -4,7 +4,7 @@ precision highp float;
 precision mediump float;
 #endif
 
-// "Hex-Shader" by EnderHDMC (aka DarkEnder, Luminous) - 2017-12-09
+// "Hex-Shader" by EnderHDMC (aka DarkEnder, Luminous) - 2017-12-09 (original), 2018-01-01 (rewrite)
 // https://github.com/EnderHDMC/Shaders/
 // License: Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
 // https://creativecommons.org/licenses/by-sa/4.0/legalcode
@@ -13,142 +13,154 @@ precision mediump float;
 // https://www.redblobgames.com/grids/hexagons/#references
 
 #define SIZE 20.
-#define STRETCH false
 
 uniform vec2 resolution;
 uniform vec2 touch;
 uniform float time;
 
+// Forward declarations for functions that will most likey be used.
 vec2 pixel_to_hex(vec2 pixel);
-vec2 get_hex_uv(vec2 p, vec2 res);
-float round(float f);
+vec2 get_hex_uv(vec2 p, vec2 res, float size);
+vec2 get_hex_uv_stretch(vec2 p, vec2 res, float size);
+float hexGridf(vec2 p, float size, float edge0, float edge1); // NOTE: see smoothstep() to find out what edge0 and edge1 are.
 
-void main(void) {
-	vec2 p = gl_FragCoord.xy;
-	vec2 t = touch.xy;
-
-	vec3 color = vec3(0.0);
-	//color = vec3(0.2088, 0.3066, 0.4088);
-
-	vec2 raw_uv = p / resolution;
-	vec2 uv = get_hex_uv(p, resolution);
-	vec2 tp = get_hex_uv(t, resolution);
-	//uv.y += round((uv.x) / 2.0);
-	//tp.y += round((tp.x) / 2.0);
-	//uv = p / resolution;
-	color.g = uv.y;
-	color.b = uv.x;
-
-	gl_FragColor = vec4(color, 1.0);
-}
-
-float round(float f)
+void main(void)
 {
-	// NOTE: According to this ref-page this is already implemented in OpenGL >= 4.00
-	// https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/round.xhtml
-	// Don't know if this will cause problems for re-definitions as I don't have OpenGL >= 4.00 so cannot test.
-	// I'm guessing it will though so I'm leaving this note here.
-	return floor(f) + step(0.5, fract(f));
+    vec2 p = gl_FragCoord.xy;
+    vec2 t = touch.xy;
+    
+    vec3 color = vec3(0.0);
+    
+    vec2 raw_uv = p / resolution;
+    vec2 uv = get_hex_uv(p, resolution, SIZE);
+    vec2 tp = get_hex_uv(t, resolution, SIZE);
+    //uv = raw_uv;  // The (normal) uv (used for debugging)
+    color.g = uv.y;
+    color.b = uv.x;
+    
+    // The hexagon grid edges
+    color *= hexGridf(p, SIZE, 0.0, 0.17);
+    
+    gl_FragColor = vec4(color, 1.0);
 }
+
+float round_hack(float f)
+{
+    // NOTE: This is a rounding function that I hacked together since I don't have it in my version of OpenGL
+    // NOTE: According to this ref-page this is already implemented in OpenGL >= 4.00
+    // https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/round.xhtml
+    // If your version of OpenGL has the round() function then use that. It is probably faster.
+    // This function is only used by the cube_round(vec3 cube) function.
+    return sign(f)*floor(abs(f)+0.5);
+}
+
+/******************************************/
+/**************** Hexagons ****************/
+/******************************************/
 
 vec3 axial_to_cube(vec2 hex)
 {
-	vec3 cube = vec3(hex.x, 0.0, hex.y);
-	cube.y = -cube.x - cube.z;
-	return cube;
+    return vec3(hex.x, -hex.x - hex.y, hex.y);
 }
 
 vec3 cube_round(vec3 cube)
 {
-	float rx = round(cube.x);
-	float ry = round(cube.y);
-	float rz = round(cube.z);
-
-	float x_diff = abs(rx - cube.x);
-	float y_diff = abs(ry - cube.y);
-	float z_diff = abs(rz - cube.z);
-
-	if (x_diff > y_diff && x_diff > z_diff)
-	{
-		rx = -ry-rz;
-	} else if (y_diff > z_diff)
-	{
-		ry = -rx-rz;
-	} else
-	{
-		rz = -rx-ry;
-	}
-	
-	return vec3(rx, ry, rz);
+    vec3 rcube = vec3(round_hack(cube.x), round_hack(cube.y), round_hack(cube.z));
+    vec3 diff = (abs(rcube - cube));
+    
+    if (diff.x > diff.y && diff.x > diff.z) {
+        rcube.x = -rcube.y - rcube.z;
+    }
+    else if (diff.y > diff.z) {
+        rcube.y = -rcube.x - rcube.z;
+    }
+    else {
+        rcube.z = -rcube.x - rcube.y;
+    }
+    
+    return rcube;
 }
 
-vec2 cube_to_axial(vec3 cube){
-	vec2 hex = vec2(cube.x, cube.z);
-	return hex;
+vec2 cube_to_axial(vec3 cube)
+{
+    return vec2(cube.x, cube.z);
 }
 
 vec2 hex_round(vec2 hex)
 {
-	return cube_to_axial(cube_round(axial_to_cube(hex)));
+    return cube_to_axial(cube_round(axial_to_cube(hex)));
 }
 
-vec2 pixel_to_hex(vec2 pixel)
+vec2 pixel_to_hex(vec2 pixel, float size)
 {
-	float q = pixel.x * 2.0 / 3.0 / SIZE;
-	float r = (-pixel.x / 3.0 + sqrt(3.0)/3.0 * pixel.y) / SIZE;
-	return hex_round(vec2(q, r));
+    // NOTE: hex_round(vec2(q, r));
+    return hex_round(vec2(pixel.x * 2.0 / 3.0 / size, (-pixel.x / 3.0 + sqrt(3.0) / 3.0 * pixel.y) / size));
 }
 
-vec2 get_hex_uv(vec2 p, vec2 res)
+vec2 get_hex_uv(vec2 p, vec2 res, float size)
 {
-	/*
-	 *      Note: Depending on your purposes for testing if a pixel
-	 *            is on a specific hexagon coordinate you may want to use
-	 *            the pixel_to_hex directly (with the raw pixel coordinate)
-	 *            as this (get_hex_uv) function leaves gaps between hexagons
-	 *            Eg. According to this function the hexagons marked with y are on equal y coords
-	 *             _   _   _
-	 *           _/ \_/ \_/ \_
-	 *          /y\_/y\_/y\_/y\
-	 *          \_/ \_/ \_/ \_/
-	 *            \_/ \_/ \_/
-	 *
-	 *            Where you may have wanted something like this
-	 *             _   _   _
-	 *           _/ \_/ \_/ \_
-	 *          /y\_/y\_/y\_/y\
-	 *          \_/y\_/y\_/y\_/
-	 *            \_/ \_/ \_/
-	 *
-	 *            If so then you will want to use pixel_to_hex on the pixel coord
-	 *            so you will need to do something like this:
-	 *            vec2 hex = pixel_to_hex(pixel);
-	 *            hex.y += round(hex.x / 2.0);
-	 *
-	 *            Just remember that when you compare this the value will not be normalized
-	 */
+    /*
+     * Note: Depending on your purposes for testing if a pixel
+     * is on a specific hexagon coordinate you may want to use
+     * the pixel_to_hex directly (with the raw pixel coordinate)
+     * as this function does leaves gaps between hexagons
+     * Eg. According to this function the hexagons marked with y are on equal y coords
+     *    _   _   _
+     *  _/ \_/ \_/ \_
+     * /y\_/y\_/y\_/y\
+     * \_/ \_/ \_/ \_/
+     *   \_/ \_/ \_/
+     *
+     * Where you may have wanted something like this:
+     *    _   _   _
+     *  _/ \_/ \_/ \_
+     * /y\_/y\_/y\_/y\
+     * \_/y\_/y\_/y\_/
+     *   \_/ \_/ \_/
+     *
+     * If so then you will want to use pixel_to_hex() on the pixel coord
+     * then you will need to do something like this:
+     * vec2 hex = pixel_to_hex(pixel);
+     * hex.y += round(hex.x / 2.0);
+     */
 
-	// Convert to pixel coordinates and normalize
-	/*
-	 *	NOTE: The y offset is calculated taking into account
-	 *				the x offset / 2.0 to account for the hexagonal
-	 *				coordinates going slightly up as it goes along
-	 */
-	vec2 uv = vec2(pixel_to_hex(p).x / pixel_to_hex(res).x,
-		((pixel_to_hex(p).x / 2.0) + pixel_to_hex(p).y) / pixel_to_hex(vec2(0.0, res.y)).y);
+    // Convert to pixel coordinates and normalise
+    /*
+     * NOTE: The y offset is calculated taking into account
+     * the x offset / 2.0 to account for the hexagonal
+     * coordinates going slightly up as it goes along.
+     */
+     
+    return vec2(pixel_to_hex(p, size).x / pixel_to_hex(res, size).x,
+                ((pixel_to_hex(p, size).x / 2.0) + pixel_to_hex(p, size).y) / pixel_to_hex(vec2(0.0, res.y), size).y);
+}
 
-	if (STRETCH)
-	{
-		// Stretch the uv onto the screen so that there will be no artifacts on the edges
-		// The artifacts are caused by negative coords on the top and left of the screen
-		// this can be rather undesirable for wrapping textures that aren't seamless
+vec2 get_hex_uv_stretch(vec2 p, vec2 res, float size)
+{
+    // NOTE: This does not stretch the actual hexagons.
+    // It just adjusts their normalised values to cover the screen properly.
+    
+    vec2 uv = get_hex_uv(p, res, size);
+    
+    uv.x *= (res.x - size) / res.x;
+    uv.x += size / 2. / res.x;
+    uv.y *= (res.y - size) / res.y;
+    uv.y += size / 2. / res.y;
 
-		// TODO: Check if this actually stretches the shape of the hexagon
-		uv.x *= (resolution.x - SIZE) / resolution.x;
-		uv.x += SIZE / 2. / resolution.x;
-		uv.y *= (resolution.y - SIZE) / resolution.y;
-		uv.y += SIZE / 2. / resolution.y;
-	}
+    return uv;
+}
 
-	return uv;
+float hex(vec2 p) {
+    p.x *= 1.1547;
+    p.y += mod(floor(p.x + 0.5), 2.0) * 0.5; // (p.x + 0.5) to align the grid with the hexagons
+    p = abs((mod(p + 0.5, 1.0) - 0.5)); // (p + 0.5) to align the grid with the hexagons
+    return abs(max(p.x * 1.5 + p.y, p.y * 2.0) - 1.0);
+}
+
+float hexGridf(vec2 p, float size, float edge0, float edge1) {
+    // NOTE: sqrt(3) is equal to the length between two parralel lines in a regular hexagon
+    return smoothstep(0.0, 0.17, hex(p / size / sqrt(3.0)));
+    
+    // NOTE: edge0 and edge1 control how thick the edges of the hexagons will be.
+    // If edge0 > edge1 than then the hexagon will be inverted.
 }
