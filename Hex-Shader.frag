@@ -19,28 +19,31 @@ uniform vec2 touch;
 uniform float time;
 
 // Forward declarations for functions that will most likey be used.
-vec2 pixel_to_hex(vec2 pixel);
+vec2 pixel_to_hex(vec2 pixel, float size);
 vec2 get_hex_uv(vec2 p, vec2 res, float size);
-vec2 get_hex_uv_stretch(vec2 p, vec2 res, float size);
 float hexGridf(vec2 p, float size, float edge0, float edge1); // NOTE: see smoothstep() to find out what edge0 and edge1 are.
 
 void main(void)
 {
     vec2 p = gl_FragCoord.xy;
     vec2 t = touch.xy;
-    
+
     vec3 color = vec3(0.0);
-    
+
     vec2 raw_uv = p / resolution;
     vec2 uv = get_hex_uv(p, resolution, SIZE);
+    //uv = get_hex_uv_stretch(p, resolution, SIZE);
     vec2 tp = get_hex_uv(t, resolution, SIZE);
     //uv = raw_uv;  // The (normal) uv (used for debugging)
     color.g = uv.y;
     color.b = uv.x;
-    
+
     // The hexagon grid edges
-    color *= hexGridf(p, SIZE, 0.0, 0.17);
-    
+    if (uv != raw_uv) {
+        float grid = hexGridf(p, SIZE, 0.0, 0.17);
+        color *= grid;
+    }
+
     gl_FragColor = vec4(color, 1.0);
 }
 
@@ -66,8 +69,8 @@ vec3 axial_to_cube(vec2 hex)
 vec3 cube_round(vec3 cube)
 {
     vec3 rcube = vec3(round_hack(cube.x), round_hack(cube.y), round_hack(cube.z));
-    vec3 diff = (abs(rcube - cube));
-    
+    vec3 diff = abs(rcube - cube);
+
     if (diff.x > diff.y && diff.x > diff.z) {
         rcube.x = -rcube.y - rcube.z;
     }
@@ -77,7 +80,7 @@ vec3 cube_round(vec3 cube)
     else {
         rcube.z = -rcube.x - rcube.y;
     }
-    
+
     return rcube;
 }
 
@@ -121,7 +124,7 @@ vec2 get_hex_uv(vec2 p, vec2 res, float size)
      * If so then you will want to use pixel_to_hex() on the pixel coord
      * then you will need to do something like this:
      * vec2 hex = pixel_to_hex(pixel);
-     * hex.y += round(hex.x / 2.0);
+     * hex.y += floor(hex.x / 2.0);
      */
 
     // Convert to pixel coordinates and normalise
@@ -130,24 +133,33 @@ vec2 get_hex_uv(vec2 p, vec2 res, float size)
      * the x offset / 2.0 to account for the hexagonal
      * coordinates going slightly up as it goes along.
      */
-     
-    return vec2(pixel_to_hex(p, size).x / pixel_to_hex(res, size).x,
-                ((pixel_to_hex(p, size).x / 2.0) + pixel_to_hex(p, size).y) / pixel_to_hex(vec2(0.0, res.y), size).y);
-}
 
-vec2 get_hex_uv_stretch(vec2 p, vec2 res, float size)
-{
-    // NOTE: This does not stretch the actual hexagons.
-    // It just adjusts their normalised values to cover the screen properly.
-    
-    vec2 uv = get_hex_uv(p, res, size);
-    
-    uv.x *= (res.x - size) / res.x;
-    uv.x += size / 2. / res.x;
-    uv.y *= (res.y - size) / res.y;
-    uv.y += size / 2. / res.y;
+    // How many hexagons fit in the x axis and y axis
+    // Note: this does not include  parts of hexagons that were cut off
+    // The parts of the hexagons that were cut off need to be added on
+    vec2 maxHex = vec2(pixel_to_hex(vec2(res.x, 0.0), size).x, pixel_to_hex(vec2(0.0, res.y), size).y);
 
-    return uv;
+    // Calculate where the right screen border cuts the hexagons
+    float cutHex = (mod(res.x, 3.0*size));
+    if (mod(maxHex.x, 2.0) == 0.0) {
+        if (cutHex > 1.5*size) {
+            cutHex = cutHex - 3.0*size;
+        }
+    }
+    else {
+	    cutHex -= 1.5*size;
+    }
+    maxHex.x += cutHex / (1.5*size); // Add the cut part in the x axis
+
+    // Calculate where the top screen border cuts the hexagons
+    cutHex = mod(res.y + 0.5 * size * sqrt(3.0), sqrt(3.0)*size) - 0.5*sqrt(3.0) * size;
+    maxHex.y += cutHex / (sqrt(3.0) * size); // Add the cut part in the y axis
+
+    // Current hexagon
+    vec2 curHex = vec2(pixel_to_hex(p, size).x, pixel_to_hex(p, size).y);
+    curHex.y += 0.5*curHex.x;
+
+    return curHex / maxHex;
 }
 
 float hex(vec2 p) {
@@ -160,7 +172,7 @@ float hex(vec2 p) {
 float hexGridf(vec2 p, float size, float edge0, float edge1) {
     // NOTE: sqrt(3) is equal to the length between two parralel lines in a regular hexagon
     return smoothstep(edge0, edge1, hex(p / size / sqrt(3.0)));
-    
+
     // NOTE: edge0 and edge1 control how thick the edges of the hexagons will be.
     // If edge0 > edge1 than then the hexagon will be inverted.
 }
