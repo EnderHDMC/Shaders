@@ -123,7 +123,7 @@ vec2 get_hex_uv(vec2 p, vec2 res, float size)
      *
      * If so then you will want to use pixel_to_hex() on the pixel coord
      * then you will need to do something like this:
-     * vec2 hex = pixel_to_hex(pixel);
+     * vec2 hex = pixel_to_hex(pixel, hex_size);
      * hex.y += floor(hex.x / 2.0);
      */
 
