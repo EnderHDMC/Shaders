@@ -38,6 +38,6 @@ mag_filter=GL_NEAREST
 </texture>
 
 <pass>
-shader=Hex.dsd
+shader=Hex-Shader.dsd
 sampler:u_screen=0
 </pass>
