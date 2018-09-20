@@ -6,17 +6,28 @@ precision mediump float;
 
 // "Hex-Shader" by EnderHDMC (aka DarkEnder, Luminous) - 2017-12-09 (original), 2018-01-01 (rewrite)
 // https://github.com/EnderHDMC/Shaders/
-// License: Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
-// https://creativecommons.org/licenses/by-sa/4.0/legalcode
 
 // Credit to amitp for collecting the algorithm resources into one excellent comprehensible reference
 // https://www.redblobgames.com/grids/hexagons/#references
 
 #define SIZE 20.
 
+#define EDGE_0 0.0
+#define EDGE_1 0.17
+#define USE_EDGE 1
+
+/* SIZE is the side length of the hexagons in pixels.
+ * Just don't make it too small or too big else it'll look weird.
+ *
+ * The further EDGE_0 and EDGE_1 are from each other the smoother the edges will be.
+ * EDGE_0 and EDGE_1 control how thick the edges of the hexagons will be.
+ * If EDGE_0 > EDGE_1 than then the hexagon will be inverted.
+ *
+ * USE_EDGE is just whether to make the edges or not.
+ */
+
+// Required uniforms
 uniform vec2 resolution;
-uniform vec2 touch;
-uniform float time;
 
 // Forward declarations for functions that will most likey be used.
 vec2 pixel_to_hex(vec2 pixel, float size);
@@ -26,23 +37,20 @@ float hexGridf(vec2 p, float size, float edge0, float edge1); // NOTE: see smoot
 void main(void)
 {
     vec2 p = gl_FragCoord.xy;
-    vec2 t = touch.xy;
-
     vec3 color = vec3(0.0);
 
     vec2 raw_uv = p / resolution;
     vec2 uv = get_hex_uv(p, resolution, SIZE);
-    //uv = get_hex_uv_stretch(p, resolution, SIZE);
-    vec2 tp = get_hex_uv(t, resolution, SIZE);
     //uv = raw_uv;  // The (normal) uv (used for debugging)
-    color.g = uv.y;
-    color.b = uv.x;
+    color = vec3(0.0, uv.yx);
 
     // The hexagon grid edges
+#if USE_EDGE
     if (uv != raw_uv) {
-        float grid = hexGridf(p, SIZE, 0.0, 0.17);
+        float grid = hexGridf(p, SIZE, EDGE_0, EDGE_1);
         color *= grid;
     }
+#endif
 
     gl_FragColor = vec4(color, 1.0);
 }
