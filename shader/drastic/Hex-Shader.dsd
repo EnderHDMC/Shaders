@@ -41,7 +41,7 @@ void main()
 
 #define EDGE_0 0.0
 #define EDGE_1 0.17
-#define EDGE_TINT 0.0
+#define EDGE_TINT 0.7
 
 /* SIZE is the side length of the hexagons in pixels.
  * Just don't make it too small or too big else it'll look weird.
