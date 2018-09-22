@@ -1,3 +1,4 @@
+// Hex-Shader (Drastic)
     Copyright (C) 2017,2018 Marco Gomes - EnderHDMC@gmail.com
 
     This file is part of Hex-Shader (Drastic).
@@ -40,7 +41,7 @@ void main()
 
 #define EDGE_0 0.0
 #define EDGE_1 0.17
-#define USE_EDGE 1
+#define EDGE_TINT 0.0
 
 /* SIZE is the side length of the hexagons in pixels.
  * Just don't make it too small or too big else it'll look weird.
@@ -49,17 +50,39 @@ void main()
  * EDGE_0 and EDGE_1 control how thick the edges of the hexagons will be.
  * If EDGE_0 > EDGE_1 than then the hexagon will be inverted.
  *
- * USE_EDGE is just whether to make the edges or not.
+ * EDGE_TINT is how much the how much the edge will multiplied with the hex colour.
+ * 1.0 is full color, so no edge, 0.0 is a black edge,
+ * > 1.0 gives border the same colour as the hex but brighter,
+ * < 0.0 gives a slightly bigger black border,
+ * and between 0.0 and 1.0 gives border the same colour as the hex but darker.
  */
+
+#define BLEND_MODE     0
+#define BLEND_MID_HEX  1
+#define BLEND_CROSSHEX 2
 
 uniform vec2 u_target_size;        // resolution
 varying vec2 v_texture_coordinate; // normalised gl_FragCoord.xy
-uniform sampler2D u_screen;        // texture
+uniform vec4 u_texture_size;       // (1.0/w, 1.0/h, w, h)
+
+// Neighbor struct
+struct n
+{
+    vec2 nc;
+    vec2 n30;
+    vec2 n90;
+    vec2 n150;
+    vec2 n210;
+    vec2 n270;
+    vec2 n330;
+};
 
 // Forward declarations for functions that will most likey be used.
 vec2 pixel_to_hex(vec2 pixel, float size);
 vec2 get_hex_uv(vec2 p, vec2 res, float size);
+vec2 get_hex_uv_stretch(vec2 p, vec2 res, float size);
 float hexGridf(vec2 p, float size, float edge0, float edge1); // NOTE: see smoothstep() to find out what edge0 and edge1 are.
+n get_n(vec2 res, float size);
 
 void main()
 {
@@ -67,13 +90,33 @@ void main()
     vec3 color = vec3(0.0);
 
     vec2 uv = get_hex_uv(p, u_target_size, SIZE);
-    color = texture2D(u_screen, uv).rgb;
-    
-#if USE_EDGE
+    color = texture2D(u_texture, uv).rgb;
+
+#if BLEND_MODE == BLEND_CROSSHEX
+    n n = get_n(u_target_size, SIZE);
+    color += texture2D(u_texture, uv + n.n30 ).rgb;
+    color += texture2D(u_texture, uv + n.n90 ).rgb;
+    color += texture2D(u_texture, uv + n.n150).rgb;
+    color += texture2D(u_texture, uv + n.n210).rgb;
+    color += texture2D(u_texture, uv + n.n270).rgb;
+    color += texture2D(u_texture, uv + n.n330).rgb;
+    color /= 7.0;
+#elif BLEND_MODE == BLEND_MID_HEX
+    vec2 o = u_texture_size.xy;
+    color += texture2D(u_texture, uv + vec2(-o.x, -o.y)).rgb;
+    color += texture2D(u_texture, uv + vec2( 0.0, -o.y)).rgb;
+    color += texture2D(u_texture, uv + vec2( o.x, -o.y)).rgb;
+    color += texture2D(u_texture, uv + vec2(-o.x,  0.0)).rgb;
+    color += texture2D(u_texture, uv + vec2( o.x,  0.0)).rgb;
+    color += texture2D(u_texture, uv + vec2(-o.x,  o.y)).rgb;
+    color += texture2D(u_texture, uv + vec2( 0.0,  o.y)).rgb;
+    color += texture2D(u_texture, uv + vec2( o.x,  o.y)).rgb;
+    color /= 9.0;
+#endif
+
     // The hexagon grid edges
     float grid = hexGridf(p, SIZE, EDGE_0, EDGE_1);
-    color *= grid;
-#endif
+    color = mix(color * grid, color, EDGE_TINT);
 
     gl_FragColor = vec4(color, 1.0);
 }
@@ -91,6 +134,26 @@ float round_hack(float f)
 /******************************************/
 /**************** Hexagons ****************/
 /******************************************/
+
+n get_n(vec2 res, float size)
+{
+    n n;
+
+    vec3 o = vec3(0.0);
+    o.xy = get_hex_uv(vec2(1.5 * SIZE, SIZE), res, size);
+    o.z = o.y * 2.0;
+
+    n.nc   = vec2( 0.0,  0.0);
+    
+    n.n30  = vec2( o.x,  o.y);
+    n.n90  = vec2( 0.0,  o.z);
+    n.n150 = vec2(-o.x,  o.y);
+    n.n210 = vec2(-o.x, -o.y);
+    n.n270 = vec2( 0.0, -o.z);
+    n.n330 = vec2( o.x, -o.y);
+
+    return n;
+}
 
 vec3 axial_to_cube(vec2 hex)
 {
@@ -178,7 +241,7 @@ vec2 get_hex_uv(vec2 p, vec2 res, float size)
         }
     }
     else {
-	    cutHex -= 1.5*size;
+        cutHex -= 1.5*size;
     }
     maxHex.x += cutHex / (1.5*size); // Add the cut part in the x axis
 
