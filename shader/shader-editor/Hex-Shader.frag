@@ -30,10 +30,6 @@ precision mediump float;
  * and between 0.0 and 1.0 gives border the same colour as the hex but darker.
  */
 
-#define BLEND_MODE     0
-#define BLEND_MID_HEX  1
-#define BLEND_CROSSHEX 2
-
 // Required uniforms
 uniform vec2 resolution;
 
