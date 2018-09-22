@@ -61,6 +61,14 @@ void main(void)
     vec2 p = gl_FragCoord.xy;
     vec3 color = vec3(0.0);
 
+    /* NOTE: the raw_uv must be calculated in the same way the hex_uv is calculated.
+     * If raw_uv is calculated the following way:
+     * raw_uv = (p * multipliers) / dividors + additions/subtrations;
+     * then the hex_uv will be calculated as follows:
+     * get_hex_uv(p, dividors * 1.0/multipliers, SIZE) + additions/subtrations;
+     * where p is gl_FragCoord.xy;
+     * This shader was made to be easily be mixed with other shaders, so the hex_uv is pretty much used as normal.
+     */
     vec2 raw_uv = p / resolution;
     vec2 uv = get_hex_uv(p, resolution, SIZE);
     //uv = raw_uv;  // The (normal) uv (used for debugging)
