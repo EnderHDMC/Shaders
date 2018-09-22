@@ -4,7 +4,7 @@ precision highp float;
 precision mediump float;
 #endif
 
-// "Hex-Shader" by EnderHDMC (aka DarkEnder, Luminous) - 2017-12-09 (original), 2018-01-01 (rewrite)
+// "Hex-Shader" by EnderHDMC (aka DarkEnder, Luminous) - 2017-12-09 (original), 2018-01-01 (rewrite), 2018-09-20 (Drastic port)
 // https://github.com/EnderHDMC/Shaders/
 
 // Credit to amitp for collecting the algorithm resources into one excellent comprehensible reference
@@ -14,7 +14,7 @@ precision mediump float;
 
 #define EDGE_0 0.0
 #define EDGE_1 0.17
-#define USE_EDGE 1
+#define EDGE_TINT 0.7
 
 /* SIZE is the side length of the hexagons in pixels.
  * Just don't make it too small or too big else it'll look weird.
@@ -23,34 +23,61 @@ precision mediump float;
  * EDGE_0 and EDGE_1 control how thick the edges of the hexagons will be.
  * If EDGE_0 > EDGE_1 than then the hexagon will be inverted.
  *
- * USE_EDGE is just whether to make the edges or not.
+ * EDGE_TINT is how much the how much the edge will multiplied with the hex colour.
+ * 1.0 is full color, so no edge, 0.0 is a black edge,
+ * > 1.0 gives border the same colour as the hex but brighter,
+ * < 0.0 gives a slightly bigger black border,
+ * and between 0.0 and 1.0 gives border the same colour as the hex but darker.
  */
+
+#define BLEND_MODE     0
+#define BLEND_MID_HEX  1
+#define BLEND_CROSSHEX 2
 
 // Required uniforms
 uniform vec2 resolution;
 
+// Neighbor struct
+struct n
+{
+    vec2 nc;
+    vec2 n30;
+    vec2 n90;
+    vec2 n150;
+    vec2 n210;
+    vec2 n270;
+    vec2 n330;
+};
+
 // Forward declarations for functions that will most likey be used.
 vec2 pixel_to_hex(vec2 pixel, float size);
 vec2 get_hex_uv(vec2 p, vec2 res, float size);
+vec2 get_hex_uv_stretch(vec2 p, vec2 res, float size);
 float hexGridf(vec2 p, float size, float edge0, float edge1); // NOTE: see smoothstep() to find out what edge0 and edge1 are.
+n get_n(vec2 res, float size);
 
 void main(void)
 {
     vec2 p = gl_FragCoord.xy;
     vec3 color = vec3(0.0);
 
+    /* NOTE: the raw_uv must be calculated in the same way the hex_uv is calculated.
+     * If raw_uv is calculated the following way:
+     * raw_uv = (p * multipliers) / dividors + additions/subtrations;
+     * then the hex_uv will be calculated as follows:
+     * get_hex_uv(p, dividors * 1.0/multipliers, SIZE) + additions/subtrations;
+     * where p is gl_FragCoord.xy;
+     * This shader was made to be easily be mixed with other shaders, so the hex_uv is pretty much used as normal.
+     */
     vec2 raw_uv = p / resolution;
     vec2 uv = get_hex_uv(p, resolution, SIZE);
     //uv = raw_uv;  // The (normal) uv (used for debugging)
     color = vec3(0.0, uv.yx);
 
     // The hexagon grid edges
-#if USE_EDGE
-    if (uv != raw_uv) {
-        float grid = hexGridf(p, SIZE, EDGE_0, EDGE_1);
-        color *= grid;
-    }
-#endif
+    // The hexagon grid edges
+    float grid = hexGridf(p, SIZE, EDGE_0, EDGE_1);
+    color = mix(color * grid, color, EDGE_TINT);
 
     gl_FragColor = vec4(color, 1.0);
 }
@@ -68,6 +95,27 @@ float round_hack(float f)
 /******************************************/
 /**************** Hexagons ****************/
 /******************************************/
+
+n get_n(vec2 res, float size)
+{
+    n n;
+
+    vec3 o = vec3(0.0);
+    o.xy = get_hex_uv(vec2(1.5 * SIZE, SIZE), res, size);
+    o.z = o.y * 2.0;
+
+    n.nc   = vec2( 0.0,  0.0);
+
+    // The neighbor at the respective angle
+    n.n30  = vec2( o.x,  o.y);
+    n.n90  = vec2( 0.0,  o.z);
+    n.n150 = vec2(-o.x,  o.y);
+    n.n210 = vec2(-o.x, -o.y);
+    n.n270 = vec2( 0.0, -o.z);
+    n.n330 = vec2( o.x, -o.y);
+
+    return n;
+}
 
 vec3 axial_to_cube(vec2 hex)
 {
@@ -155,7 +203,7 @@ vec2 get_hex_uv(vec2 p, vec2 res, float size)
         }
     }
     else {
-	    cutHex -= 1.5*size;
+        cutHex -= 1.5*size;
     }
     maxHex.x += cutHex / (1.5*size); // Add the cut part in the x axis
 
