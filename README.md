@@ -3,6 +3,10 @@ Shaders I made in [Shader Editor (Android)](https://github.com/markusfisch/Shade
 
 I also port them to [Drastic](https://play.google.com/store/apps/details?id=com.dsemu.drastic) if their effect will work well with it.
 
+# Installing the Drastic shaders
+Extract the .dfx and .dsd files into the Drastic/shaders/ folder. The Drastic folder should be in your internal storage.
+After that, you can select them in the Video settings of Drastic with the Filter option.
+
 # Screenshots
 ![Alt text](screenshots/drastic/Hex-Kirby_Squeak_Squad-Gao_Gao.png?raw=true "Kirby Squeak Squad with Hex Shader, fighting Gao Gao")
 ![Alt text](screenshots/drastic/Hex-Kirby_Squeak_Squad-Boxy.png?raw=true "Kirby Squeak Squad with Hex Shader, fighting Boxy")
